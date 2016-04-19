@@ -1,13 +1,18 @@
 import xml.etree.ElementTree as ET
 import re
 import json
-from collections import Counter
+from sklearn import svm, metrics
+from sklearn.naive_bayes import GaussianNB
+from collections import Counter, OrderedDict
 from os import listdir
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.stem.lancaster import LancasterStemmer
+import file_reader
+import os.path
+import numpy as np
 
 
-regex_char = '[/.,\'"$()0-9!?@#%^&*;\\|<>+_:=-]'
+regex_char = '[^a-zA-Z\s]|^\w'
 
 
 def find_text_pos(root_element):
@@ -17,14 +22,14 @@ def find_text_pos(root_element):
 
 
 def get_all_text(files_dir):
-    text_list = list()
+    text_dic = dict()
     for xml in listdir(files_dir):
         if xml.endswith(".xml"):
-            print xml
             tree = ET.parse(files_dir+'/'+xml)
             root = tree.getroot()
-            text_list.append(find_text_pos(root))
-    return text_list
+            text_dic[int(xml.title()[:-4])] = find_text_pos(root)
+    text_dic = OrderedDict(sorted(text_dic.items()))
+    return text_dic.values()
 
 
 def get_text_counter(elements):
@@ -34,11 +39,14 @@ def get_text_counter(elements):
         words = []
         for paragraph in element:
             lowered_text = paragraph.text.lower()
-            lowered_text = re.sub(regex_char, ' ', lowered_text)
+            regex = re.compile(regex_char)
+            lowered_text = regex.sub('', lowered_text)
+            # lowered_text = re.sub(regex_char, ' ', lowered_text)
             splits = re.split(' ', lowered_text)
             words += [stemmer.stem(item) for item in splits]
         word_counter = Counter(words)
-        word_counter.pop('')
+        if '' in word_counter:
+            word_counter.pop('')
         doc_lists.append(word_counter)
     return doc_lists
 
@@ -53,13 +61,63 @@ def get_doc_freq(counters):
     return token_from_all
 
 
+def get_feature_training(doc_freq, all_terms, counters):
+    from math import log10
+    return [[(0 if counter[term] == 0 else 1+log10(counter[term])) *
+             0 if doc_freq[term] == 0 else log10(len(counters)/float(doc_freq[term]))
+             for term in all_terms] for counter in counters]
+
+
 if __name__ == "__main__":
-    train_dir = "dataset/Training101"
-    text_elements = get_all_text(train_dir)
+    # training
+    if not os.path.isfile('training_result.txt'):
+        train_dir = "dataset/Training101"
+        text_elements = get_all_text(train_dir)
+        token_counters = get_text_counter(text_elements)
+
+        term_doc_freq = get_doc_freq(token_counters)
+        term_all_docs = sorted(term_doc_freq.keys())
+
+        features = get_feature_training(term_doc_freq, term_all_docs, token_counters)
+
+        training_result = open('training_result_feature.txt', 'w')
+        training_result.writelines(json.dumps(features))
+        training_result.close()
+        training_result = open('training_result_token.txt', 'w')
+        training_result.writelines(json.dumps(term_all_docs))
+        training_result.close()
+    training_result = open('training_result_feature.txt').read()
+    training_features = json.loads(training_result)
+    training_features = np.array(training_features)
+    training_features = training_features.reshape((len(training_features), -1))
+    # print len(features[0])
+    training_result = open('training_result_token.txt').read()
+    training_tokens = json.loads(training_result)
+    training_target = file_reader.get_target('dataset/topic/Training101.txt')
+    training_target = np.array(training_target)
+
+    # classifier
+    clf = svm.SVC(gamma=0.01, C=1000.)
+    # clf = GaussianNB()
+    clf.fit(training_features, training_target)
+
+    test_dir = "dataset/Test101"
+    text_elements = get_all_text(test_dir)
     token_counters = get_text_counter(text_elements)
 
     term_doc_freq = get_doc_freq(token_counters)
-    term_all_docs = sorted(term_doc_freq.keys())
+    term_all_docs = training_tokens
 
-    print term_doc_freq
-    print term_all_docs
+    features = get_feature_training(term_doc_freq, term_all_docs, token_counters)
+    features = np.array(features)
+    features = features.reshape((len(features), -1))
+    # print len(features[0])
+
+    test_target = file_reader.get_target('dataset/topic/Test101.txt')
+
+    predicted = clf.predict(features)
+    print predicted
+
+    print("Classification report for classifier %s:\n%s\n"
+      % (clf, metrics.classification_report(test_target, predicted)))
+    print("Confusion matrix:\n%s" % metrics.confusion_matrix(test_target, predicted))
