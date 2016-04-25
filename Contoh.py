@@ -1,8 +1,13 @@
 __author__ = 'maakbar'
 
-import xml.etree.ElementTree as ET
+from sklearn import svm, metrics
 
 if __name__ == "__main__":
-    tree = ET.parse('6146.xml')
-    root = tree.getroot()
-    
+    feature = [[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1]]
+    target = [0, 0, 0, 0, 0, 0, 0, 1]
+    clf = svm.SVC(gamma=0.01, C=1000.)
+    clf.fit(feature, target)
+
+    print clf.predict(feature)
+
+

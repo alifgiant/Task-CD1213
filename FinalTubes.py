@@ -7,6 +7,7 @@ from collections import Counter, OrderedDict
 from os import listdir
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.stem.lancaster import LancasterStemmer
+from nltk.corpus import stopwords
 import file_reader
 import os.path
 import numpy as np
@@ -43,7 +44,7 @@ def get_text_counter(elements):
             lowered_text = regex.sub('', lowered_text)
             # lowered_text = re.sub(regex_char, ' ', lowered_text)
             splits = re.split(' ', lowered_text)
-            words += [stemmer.stem(item) for item in splits]
+            words += [stemmer.stem(item) for item in splits if item not in stopwords.words('english')]
         word_counter = Counter(words)
         if '' in word_counter:
             word_counter.pop('')
@@ -101,23 +102,23 @@ if __name__ == "__main__":
     # clf = GaussianNB()
     clf.fit(training_features, training_target)
 
-    test_dir = "dataset/Test101"
-    text_elements = get_all_text(test_dir)
-    token_counters = get_text_counter(text_elements)
-
-    term_doc_freq = get_doc_freq(token_counters)
-    term_all_docs = training_tokens
-
-    features = get_feature_training(term_doc_freq, term_all_docs, token_counters)
-    features = np.array(features)
-    features = features.reshape((len(features), -1))
+    # test_dir = "dataset/Test101"
+    # text_elements = get_all_text(test_dir)
+    # token_counters = get_text_counter(text_elements)
+    #
+    # term_doc_freq = get_doc_freq(token_counters)
+    # term_all_docs = training_tokens
+    #
+    # features = get_feature_training(term_doc_freq, term_all_docs, token_counters)
+    # features = np.array(features)
+    # features = features.reshape((len(features), -1))
     # print len(features[0])
 
-    test_target = file_reader.get_target('dataset/topic/Test101.txt')
+    # test_target = file_reader.get_target('dataset/topic/Test101.txt')
 
-    predicted = clf.predict(features)
+    predicted = clf.predict(training_features)
     print predicted
 
     print("Classification report for classifier %s:\n%s\n"
-      % (clf, metrics.classification_report(test_target, predicted)))
-    print("Confusion matrix:\n%s" % metrics.confusion_matrix(test_target, predicted))
+      % (clf, metrics.classification_report(training_target, predicted)))
+    print("Confusion matrix:\n%s" % metrics.confusion_matrix(training_target, predicted))
