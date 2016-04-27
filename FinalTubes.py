@@ -95,8 +95,8 @@ if __name__ == "__main__":
     training_result = open('training_result_token.txt').read()
     training_tokens = json.loads(training_result)
 
-    # training_target = file_reader.get_target('dataset/topic/Training101.txt')
-    training_target = file_reader.get_target('dataset/topic/Test101.txt')
+    training_target = file_reader.get_target('dataset/topic/Training101.txt')
+    # training_target = file_reader.get_target('dataset/topic/Test101.txt')
     training_target = np.array(training_target)
     training_target = training_target.reshape((len(training_target), -1)).ravel()
     #
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # clf = svm.SVC()
     # clf = svm.LinearSVR()
     # clf = neighbors.KNeighborsClassifier(n_neighbors=5)
-    clf = naive_bayes.BernoulliNB()
+    clf = naive_bayes.GaussianNB()
     # training_features = np.array(training_features)
     # # training_features = training_features.reshape((len(training_features), -1))
     # training_target = np.array(training_target)
